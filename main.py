@@ -21,6 +21,11 @@ logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
 
+with db_conn() as conn:
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS state (on_since INT)")
+    conn.commit()
+
 
 @app.route("/")
 def index():
@@ -31,13 +36,23 @@ def index():
 
 @app.route("/on")
 def turn_on():
-    on()
+    if not is_on():
+        with db_conn() as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO state VALUES (?)", (pendulum.now().int_timestamp,))
+            conn.commit()
+        on()
     return redirect(url_for("index"))
 
 
 @app.route("/off")
 def turn_off():
-    off()
+    if is_on():
+        with db_conn() as conn:
+            c = conn.cursor()
+            c.execute("DELETE FROM state")
+            conn.commit()
+        off()
     return redirect(url_for("index"))
 
 
@@ -49,6 +64,23 @@ def latest_runs():
         rows = c.fetchall()
 
     res = {"latest_runs": [{"start": r[0], "end": r[1]} for r in rows]}
+    return jsonify(res)
+
+
+@app.route("/api/on_since")
+def on_since():
+    with db_conn() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM state ORDER BY on_since DESC LIMIT 1;")
+        rows = c.fetchall()
+
+    res = None
+    try:
+        res = rows[0][0]
+    except IndexError:
+        pass
+
+    res = {"on_since": res}
     return jsonify(res)
 
 

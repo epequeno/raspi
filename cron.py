@@ -18,6 +18,7 @@ from common import PIN, MAIN_DB, db_conn, off, on, setup_gpio
 with db_conn() as conn:
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS cron (start INT, end INT)")
+    conn.commit()
 
 setup_gpio()
 
